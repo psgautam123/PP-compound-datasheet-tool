@@ -1,0 +1,62 @@
+Build a website-based app for the vendors to search through uploaded technical datasheets for various compounded polypropylene products. The graphical interface should be functional, stylish and pleasing to the eye. Use Jacob Neilson’s ten principles for IxD heuristics to design user interface.
+Design of the landing page: 
+	Vendors should be able to specify desired user-specified parameters from any of the parameters reported out in technical datasheets, such as tensile modulus, flexural modulus, melt flow etcetera on the landing page. 
+
+Workflow:
+Step 1: The search engine scans the PDF technical datasheets to find grades that best match the user's specifications. If found, output the grade and the technical datasheet. If not found go to next step.
+
+Step 2: An algorithm needs to run the following calculations to predict the blend composition that will best match the user specifications.
+	Screen datasheets to find two grades such that at least one user specified property lies within the range covered by the selected grades. Typically, Melt flow or Tensile modulus is used to select the grades.
+	Convert wt% to vol% or volume fraction
+	Use rule-of-mixtures to predict property of the blends. Use the following guides for predicting properties of the blends,
+	Melt flow: Log-additivity rule can be used. For filled polypropylene, melt flow should be calculated using good quality correlations available in the literature depending upon the nature of fillers. For instance, Krieger–Dougherty correlation can be used if the filler type is glass fiber.
+	Elastic modulus: Use sophisticated models - Halpin–Tsai, Tandon–Weng, Mori–Tanaka – only when necessary
+	Calculate other properties such as tensile yields
+	Strain at break / impact (Izod, Charpy) typically decrease nonlinearly with V_f. Use an exponential or rational fit anchored by the unfilled PP value that can be located in another datasheet that has a comparable melt flow: Exponential decay: e_b (V_f)˜e_(b,0) " " exp?(-k_e V_f);"Izod"(V_f)˜I_0 " " exp?(-k_I V_f)+I_8
+	Blend density follows additive rule using volume fractions. •  
+	HDT: correlates strongly with modulus; scale HDT with E^n(often n˜0.3" "-" " 0.5) or fit directly vs volume fraction.
+	Coefficient of linear thermal expansion & molding shrinkage varies approximately linearly with decrease with volume fraction
+	Acceptable margin of error is 5% of the user specified value.
+Output: Blend composition of the identified grades
+Step 3: If no solution is found, prompt user: “No solution was found. Would you like me to look at what options are available if we use peroxides to control melt flow via visbreaking in a reactive extrusion operation.” If No, stop.
+If the user response is “yes”, follow the step-by-step procedure below as guideline:
+The flow of polypropylene grades can be adjusted by reactive extrusion using peroxides to lower molecular weight of the polymer and increase melt flow. Use the following step-by-step procedure to solve the problem:
+	Screen the technical data sheets to find a grade that has lower melt flow than the user specified material but higher tensile modulus.
+	Use the correlations from open literature to predict peroxide loading to raise the melt flow of the selected grade to a value 0-10% above the user specified value.
+	Use the correlations and information available in the following sources. Use better correlations if they are available in more recent literature via websearch:
+References (representative):
+	Tzoganakis, C. Polym. Eng. Sci., 28(24), 1706–1714 (1988).
+	Rocha, M. C. G. et al. Polym. Degrad. Stab., 47, 113–118 (1995).
+	Azizi, H. et al. Polym. Degrad. Stab., 83, 395–401 (2004).
+	Iedema, P. D. et al. Chem. Eng. Sci., 56, 3659–3671 (2001).
+	Berzin, F. et al. Polymers, 14, 484 (2022).
+	Stanic, V. et al. Polymers, 14, 2728 (2022).
+	ExxonMobil and LyondellBasell Technical Bulletins on “Controlled Rheology PP” (CR-PP) and peroxide masterbatches.
+Here are heuristics drawn from peer-reviewed studies and industrial data (Tzoganakis 1988; Rocha 1995; Azizi 2004, 2008; Iedema 2001; Berzin 2022; Stanic 2022; ExxonMobil and LyondellBasell technical notes). These values assume standard dicumyl peroxide (DCP) or 2,5-dimethyl-2,5-di-(tert-butylperoxy)-hexane (DHBP), processed near 200–230 °C for ~1–3 min residence time.
+ Homopolymer PP
+Typical relationship (empirical fit at 220 °C):
+ln?(MFI)"  "="  " ln?(MFI_0)+9.5" " C_DCP
+
+where C_DCP= peroxide wt %.
+? Each 0.1 wt % DCP increases MFI by ˜ 2.5–3× under standard residence times.
+? Mn decreases ˜ 25–35 % per 0.1 wt % DCP increment.
+
+Impact PP (heterophasic copolymer)
+Rubber phase moderates scission; kinetics slower:
+ln?(MFI)"  "="  " ln?(MFI_0)+7.0" " C_DCP
+
+? Each 0.1 wt % DCP increases MFI by ˜ 2×, Mn drop ˜ 20–25 %.
+? Elasticity and notched-Izod drop faster than in homopolymer.
+Temperature dependence
+Reaction rate ? exp(–Ea/RT); Ea ˜ 110–125 kJ/mol.
+? 10 °C rise roughly doubles effective “dose.”
+? At 230 °C, 0.1 wt % behaves like 0.2 wt % at 200 °C.
+Residence time effect
+MFI scales with “dose” ˜ C × t × exp(–Ea/RT).
+In injection molding (t ˜ 0.5–1 min), peroxide dose must be ~2–3× higher than reactive extrusion for the same MFI shift
+Output: Once an approximate value of peroxide dosing is found, prompt the user the predicted grade and set up a small factorial design of experiments for validation with conditions that are within 20% of the predicted value. 
+
+
+
+
+

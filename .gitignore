@@ -1,0 +1,19 @@
+# Python / backend
+backend/.venv/
+**/__pycache__/
+*.py[cod]
+backend/.pytest_cache/
+backend/data/app.db
+backend/data/uploaded_datasheets/*
+!backend/data/uploaded_datasheets/.gitkeep
+
+# Node / frontend
+frontend/node_modules/
+frontend/dist/
+
+# Claude Code local tool state
+.claude/
+
+# OS / editor
+.DS_Store
+Thumbs.db
