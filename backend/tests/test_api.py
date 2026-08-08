@@ -2,9 +2,11 @@
 isolated in-memory SQLite database seeded from the real datasheet JSON --
 not the dev-file DB (backend/data/app.db), so tests never depend on or
 mutate it. Schema-equivalent to the Postgres DDL in migrations/versions/
-(same db/models.py); no local Postgres/Docker is available in this
-environment to run the real thing end-to-end, so this is the closest
-practical substitute -- see db/session.py's module docstring.
+(same db/models.py), and deliberately kept on in-memory SQLite for
+per-test speed/isolation rather than a shared Postgres instance -- the
+migrations themselves (including the Postgres-only JSONB variant) have
+been separately verified end-to-end against a real local Postgres 17
+instance; see db/session.py's module docstring.
 """
 from __future__ import annotations
 

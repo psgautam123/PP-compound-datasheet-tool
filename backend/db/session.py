@@ -2,11 +2,12 @@
 
 Reads DATABASE_URL from the environment. Production target is Postgres
 (e.g. postgresql+psycopg://user:pass@host/dbname) per the architecture
-plan; this dev environment has no local Postgres/Docker available, so the
-default falls back to a SQLite file so the app, seed script, and tests can
-run without one. The schema (db/models.py) and Alembic migration are
-written Postgres-first (JSONB variant, etc.) -- run against a real
-Postgres instance by setting DATABASE_URL before `alembic upgrade head`.
+plan; the default falls back to a SQLite file so the app, seed script, and
+tests can run without one configured. The schema (db/models.py) and
+Alembic migrations are written Postgres-first (JSONB variant, etc.) and
+have been verified end-to-end (upgrade/downgrade/seed/JSONB round-trip)
+against a real local Postgres 17 instance -- set DATABASE_URL to point at
+one before `alembic upgrade head` or running the app.
 """
 from __future__ import annotations
 
