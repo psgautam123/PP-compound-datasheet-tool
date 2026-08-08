@@ -243,6 +243,26 @@ def test_patch_extraction_applies_reviewer_correction(client, monkeypatch):
     assert r.json()["extracted_json"]["family"] == "impact_copolymer"
 
 
+def test_patch_extraction_rejects_malformed_correction(client, monkeypatch):
+    # approve_pending_extraction dict-indexes extracted_json's required
+    # fields with no .get() fallback, so a reviewer correction missing one
+    # (e.g. a typo'd/removed key) must be rejected here at PATCH time with a
+    # clear 422 -- not accepted and left to blow up as a raw 500 (KeyError)
+    # when the reviewer later clicks approve.
+    fake_grade = ExtractedGrade.model_validate(SAMPLE_GRADE)
+    monkeypatch.setattr("api.main.extract_grade_from_pdf", lambda path, source_pdf_filename=None: fake_grade)
+    submitted = _upload(client).json()
+
+    malformed = dict(submitted["extracted_json"])
+    del malformed["grade_id"]
+
+    r = client.patch(f"/extractions/{submitted['id']}", json={"extracted_json": malformed})
+    assert r.status_code == 422
+
+    # The original, valid data must still be there -- the bad PATCH didn't partially apply.
+    assert client.get(f"/extractions/{submitted['id']}").json()["extracted_json"]["grade_id"] == "TEST1"
+
+
 def test_approve_extraction_promotes_grade_and_is_then_searchable(client, monkeypatch):
     fake_grade = ExtractedGrade.model_validate(SAMPLE_GRADE)
     monkeypatch.setattr("api.main.extract_grade_from_pdf", lambda path, source_pdf_filename=None: fake_grade)

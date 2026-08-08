@@ -16,6 +16,7 @@ import anthropic
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from db.repository import (
@@ -48,7 +49,9 @@ from engine.visbreaking import (
     screen_visbreaking_base_grades,
 )
 from correlation_research.researcher import research_correlation_update
+from correlation_research.schema import CorrelationProposal
 from extraction.extractor import extract_grade_from_pdf
+from extraction.schema import ExtractedGrade
 
 from .schemas import (
     ApproveCorrelationRequest,
@@ -235,7 +238,18 @@ def get_extraction(extraction_id: int, session: Session = Depends(get_session)) 
 def patch_extraction(
     extraction_id: int, req: UpdateExtractionRequest, session: Session = Depends(get_session)
 ) -> PendingExtractionDetail:
-    row = update_pending_extraction(session, extraction_id, req.extracted_json)
+    # Validate the reviewer's correction against the same schema the
+    # extraction agent's output is validated against -- approve_pending_extraction
+    # trusts extracted_json's shape (dict indexing, no .get() fallbacks for
+    # required fields), so an under-specified correction saved here would
+    # otherwise surface as an unhandled 500 (KeyError) at approval time
+    # instead of a clear error at the point the reviewer made the mistake.
+    try:
+        validated = ExtractedGrade.model_validate(req.extracted_json)
+    except ValidationError as exc:
+        raise HTTPException(422, f"corrected data doesn't match the expected shape: {exc}") from exc
+
+    row = update_pending_extraction(session, extraction_id, validated.model_dump(mode="json"))
     if row is None:
         raise HTTPException(404, f"extraction {extraction_id} not found or not pending review")
     return to_pending_extraction_detail(row)
@@ -328,7 +342,15 @@ def get_correlation(pending_id: int, session: Session = Depends(get_session)) ->
 def patch_correlation(
     pending_id: int, req: UpdatePendingCorrelationRequest, session: Session = Depends(get_session)
 ) -> PendingCorrelationDetail:
-    row = update_pending_correlation(session, pending_id, req.proposed_json)
+    # See patch_extraction's comment -- approve_pending_correlation trusts
+    # proposed_json's shape by dict-indexing it, so validate here rather
+    # than let a bad correction surface as a KeyError at approval time.
+    try:
+        validated = CorrelationProposal.model_validate(req.proposed_json)
+    except ValidationError as exc:
+        raise HTTPException(422, f"corrected data doesn't match the expected shape: {exc}") from exc
+
+    row = update_pending_correlation(session, pending_id, validated.model_dump(mode="json"))
     if row is None:
         raise HTTPException(404, f"pending correlation {pending_id} not found or not pending review")
     return to_pending_correlation_detail(row)

@@ -277,6 +277,27 @@ def test_patch_correlation_applies_reviewer_correction(client, monkeypatch):
     assert r.json()["proposed_json"]["ln_mfi_coefficient"] == 10.1
 
 
+def test_patch_correlation_rejects_malformed_correction(client, monkeypatch):
+    # approve_pending_correlation dict-indexes proposed_json's required
+    # fields with no .get() fallback, so a reviewer correction missing one
+    # must be rejected here at PATCH time with a clear 422 -- not accepted
+    # and left to blow up as a raw 500 (KeyError) at approval time.
+    fake_result = CorrelationResearchResult.model_validate(SAMPLE_RESULT_UPDATE)
+    monkeypatch.setattr("api.main.research_correlation_update", lambda family_key, **kwargs: fake_result)
+    submitted = client.post("/correlations/research", json={"family_key": "homopolymer"}).json()
+    pending_id = submitted["pending_correlation_id"]
+
+    detail = client.get(f"/correlations/{pending_id}").json()
+    malformed = dict(detail["proposed_json"])
+    del malformed["source_citation"]
+
+    r = client.patch(f"/correlations/{pending_id}", json={"proposed_json": malformed})
+    assert r.status_code == 422
+
+    # The original, valid data must still be there -- the bad PATCH didn't partially apply.
+    assert client.get(f"/correlations/{pending_id}").json()["proposed_json"]["source_citation"] == SAMPLE_PROPOSAL["source_citation"]
+
+
 def test_approve_correlation_creates_new_active_version_and_supersedes_old(client, monkeypatch):
     fake_result = CorrelationResearchResult.model_validate(SAMPLE_RESULT_UPDATE)
     monkeypatch.setattr("api.main.research_correlation_update", lambda family_key, **kwargs: fake_result)
@@ -289,9 +310,11 @@ def test_approve_correlation_creates_new_active_version_and_supersedes_old(clien
     assert body["status"] == "approved"
     assert body["promoted_correlation_pk"] is not None
 
-    # Already decided -- can't approve/patch/reject again.
+    # Already decided -- can't approve/patch/reject again. Patch with a
+    # validly-shaped payload so the assertion exercises the decided-state
+    # guard, not schema validation (that's covered separately below).
     assert client.post(f"/correlations/{pending_id}/approve", json={"reviewed_by": "x"}).status_code == 404
-    assert client.patch(f"/correlations/{pending_id}", json={"proposed_json": {}}).status_code == 404
+    assert client.patch(f"/correlations/{pending_id}", json={"proposed_json": SAMPLE_PROPOSAL}).status_code == 404
 
 
 def test_reject_correlation_leaves_active_correlation_unchanged(client, monkeypatch):
