@@ -81,8 +81,13 @@ def _current_correlation_description(
 
 
 def _research(family_key: str, current_description: str) -> str:
-    client = anthropic.Anthropic(timeout=180.0)
-    response = client.messages.create(
+    # Web search + adaptive thinking can run well past a minute; a
+    # non-streaming call over that duration risks an intermediary dropping
+    # the idle connection (observed live as httpcore.RemoteProtocolError /
+    # anthropic.APIConnectionError). Streaming avoids that -- see
+    # claude-api skill, streaming.md.
+    client = anthropic.Anthropic()
+    with client.messages.stream(
         model=MODEL,
         max_tokens=4000,
         thinking={"type": "adaptive"},
@@ -98,7 +103,8 @@ def _research(family_key: str, current_description: str) -> str:
                 ),
             }
         ],
-    )
+    ) as stream:
+        response = stream.get_final_message()
     text = "\n".join(b.text for b in response.content if b.type == "text")
     if not text.strip():
         raise RuntimeError("correlation research agent produced no text output during the web-search pass")

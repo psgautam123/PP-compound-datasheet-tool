@@ -87,22 +87,35 @@ class _FakeTextBlock:
         self.text = text
 
 
-class _FakeMessages:
-    def __init__(self, research_text: str, parsed_output: CorrelationResearchResult):
-        self._research_text = research_text
-        self._parsed_output = parsed_output
-        self.create_calls: list[dict] = []
-        self.parse_calls: list[dict] = []
+class _FakeStream:
+    def __init__(self, text: str):
+        self._text = text
 
-    def create(self, **kwargs):
-        self.create_calls.append(kwargs)
+    def __enter__(self):
+        return self
 
+    def __exit__(self, *exc_info):
+        return False
+
+    def get_final_message(self):
         class _Resp:
             pass
 
         resp = _Resp()
-        resp.content = [_FakeTextBlock(self._research_text)]
+        resp.content = [_FakeTextBlock(self._text)]
         return resp
+
+
+class _FakeMessages:
+    def __init__(self, research_text: str, parsed_output: CorrelationResearchResult):
+        self._research_text = research_text
+        self._parsed_output = parsed_output
+        self.stream_calls: list[dict] = []
+        self.parse_calls: list[dict] = []
+
+    def stream(self, **kwargs):
+        self.stream_calls.append(kwargs)
+        return _FakeStream(self._research_text)
 
     def parse(self, **kwargs):
         self.parse_calls.append(kwargs)
@@ -133,8 +146,8 @@ def test_research_correlation_update_runs_research_then_structure_pass(monkeypat
     assert result.proposal.name == SAMPLE_PROPOSAL["name"]
 
     # Research pass: web_search tool, no structured output, sees the current correlation.
-    assert len(fake_client.messages.create_calls) == 1
-    research_call = fake_client.messages.create_calls[0]
+    assert len(fake_client.messages.stream_calls) == 1
+    research_call = fake_client.messages.stream_calls[0]
     assert research_call["model"] == "claude-opus-5"
     assert research_call["system"] == RESEARCH_SYSTEM_PROMPT
     assert research_call["tools"] == [{"type": "web_search_20260209", "name": "web_search"}]
@@ -159,7 +172,7 @@ def test_research_correlation_update_no_active_correlation_on_file(monkeypatch):
     result = research_correlation_update("impact_pp")
 
     assert result.update_recommended is False
-    research_call = fake_client.messages.create_calls[0]
+    research_call = fake_client.messages.stream_calls[0]
     assert "No active correlation currently on file" in research_call["messages"][0]["content"]
 
 
